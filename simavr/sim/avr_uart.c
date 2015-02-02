@@ -163,7 +163,7 @@ static void avr_uart_baud_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t 
 	AVR_LOG(avr, LOG_TRACE, "UART: Roughly %d usec per bytes\n", (int)p->usec_per_byte);
 	if (avr_regbit_get(avr, p->rxen)) {
 		avr_cycle_timer_register_usec(avr, p->usec_per_byte, avr_uart_periodic_xon, p);
-		printf("setting period xon every %d usec\n", (int)p->usec_per_byte);
+		TRACE(printf("setting period xon every %d usec\n", (int)p->usec_per_byte);)
 	}
 }
 
@@ -200,6 +200,7 @@ static void avr_uart_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t v, vo
 {
 	avr_uart_t * p = (avr_uart_t *)param;
 
+	uint8_t rxen = avr_regbit_get(avr, p->rxen);
 	if (p->udrc.vector && addr == p->udrc.enable.reg) {
 		/*
 		 * If enabling the UDRC interrupt, raise it immediately if FIFO is empty
@@ -215,11 +216,10 @@ static void avr_uart_write(struct avr_t * avr, avr_io_addr_t addr, uint8_t v, vo
 				avr_raise_interrupt(avr, &p->udrc);
 		}
 	}
-	if (p->udrc.vector && addr == p->r_ucsrb) {
-		// TODO: switch on transition of rxen 0 -> 1?
-		if (avr_regbit_get(avr, p->rxen)) {
+	if (p->rxc.vector && addr == p->rxc.enable.reg) {
+		if (avr_regbit_from_value(avr, p->rxen, v) && !rxen) {
 			avr_cycle_timer_register_usec(avr, p->usec_per_byte, avr_uart_periodic_xon, p);
-			printf("enabling periodic xon due to ucsrb write\n");
+			TRACE(printf("enabling periodic xon due to ucsrb write\n");)
 		}
 		else
 			avr_cycle_timer_cancel(avr, avr_uart_periodic_xon, p);
